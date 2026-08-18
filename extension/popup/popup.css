@@ -1,0 +1,175 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+
+    width: 400px;
+    max-height: 600px;
+
+    font-family:
+        Arial,
+        sans-serif;
+
+    background: #f5f7fa;
+
+    color: #1f2937;
+}
+
+
+.container {
+    padding: 16px;
+}
+
+
+.header {
+    margin-bottom: 16px;
+}
+
+
+h1 {
+    margin: 0;
+
+    font-size: 20px;
+}
+
+
+.header p {
+    margin: 4px 0 0;
+
+    color: #6b7280;
+
+    font-size: 13px;
+}
+
+
+.actions {
+    display: flex;
+
+    gap: 8px;
+
+    margin-bottom: 16px;
+}
+
+
+.button {
+    padding: 8px 12px;
+
+    border: none;
+
+    border-radius: 6px;
+
+    cursor: pointer;
+
+    font-size: 13px;
+}
+
+
+.primary {
+    background: #2563eb;
+
+    color: white;
+}
+
+
+.secondary {
+    background: #e5e7eb;
+
+    color: #374151;
+}
+
+.secondary:hover {
+    background: #d1d5db;
+}
+
+
+.danger {
+    background: #fee2e2;
+
+    color: #b91c1c;
+}
+
+
+.session-card {
+    background: white;
+
+    border-radius: 8px;
+
+    padding: 12px;
+
+    margin-bottom: 10px;
+
+    border: 1px solid #e5e7eb;
+}
+
+
+.session-title {
+    font-weight: 600;
+
+    font-size: 14px;
+
+    line-height: 20px;
+
+    margin-bottom: 4px;
+}
+
+
+.session-domain {
+    font-size: 12px;
+
+    color: #2563eb;
+
+    margin-bottom: 4px;
+}
+
+
+.session-url {
+    font-size: 11px;
+
+    color: #6b7280;
+
+    white-space: nowrap;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    margin-bottom: 8px;
+}
+
+
+.session-info {
+    display: flex;
+
+    gap: 10px;
+
+    font-size: 11px;
+
+    color: #6b7280;
+}
+
+
+.empty {
+    text-align: center;
+
+    padding: 40px 10px;
+
+    color: #6b7280;
+}
+
+
+.empty-icon {
+    font-size: 32px;
+
+    margin-bottom: 8px;
+}
+
+
+.loading {
+    text-align: center;
+
+    padding: 20px;
+
+    color: #6b7280;
+}

@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Article Tracker",
+  "version": "1.0.0",
+  "description": "Track article visits and active reading time.",
+
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background/background.js"
+  },
+
+  "action": {
+    "default_title": "Article Tracker",
+    "default_popup": "popup/popup.html"
+  },
+
+  "options_page": "options/options.html",
+
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

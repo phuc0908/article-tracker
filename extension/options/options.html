@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Article Tracker - Settings
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="options.css"
+    >
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+
+        <h1>
+            Article Tracker
+        </h1>
+
+        <p>
+            Website Configuration
+        </p>
+
+    </header>
+
+
+    <!-- ADD WEBSITE -->
+
+    <section class="card">
+
+        <h2>
+            Add Website
+        </h2>
+
+
+        <div class="form-group">
+
+            <label>
+                Website Name
+            </label>
+
+            <input
+                id="name"
+                type="text"
+                placeholder="Ví dụ: Thanh Niên"
+            >
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>
+                Domain
+            </label>
+
+            <input
+                id="domain"
+                type="text"
+                placeholder="Ví dụ: thanhnien.vn"
+            >
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>
+                Article CSS Selector
+            </label>
+
+            <input
+                id="selector"
+                type="text"
+                placeholder="Ví dụ: .detail-content"
+            >
+
+        </div>
+
+
+        <div class="form-actions">
+
+            <button
+                id="saveButton"
+                class="primary"
+            >
+                + Add Website
+            </button>
+
+            <button
+                id="cancelButton"
+                class="secondary hidden"
+            >
+                Cancel
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- WEBSITE LIST -->
+
+    <section class="card">
+
+        <div class="section-header">
+
+            <h2>
+                Configured Websites
+            </h2>
+
+            <span id="websiteCount">
+                0
+            </span>
+
+        </div>
+
+
+        <div id="websiteList"></div>
+
+    </section>
+
+</div>
+
+
+<script src="options.js"></script>
+
+</body>
+
+</html>
