@@ -37,7 +37,7 @@ refreshButton.addEventListener(
         await loadSessions();
 
         refreshButton.disabled = false;
-        refreshButton.innerText = "🔄 Refresh";
+        refreshButton.innerText = "Refresh";
 
     }
 );
