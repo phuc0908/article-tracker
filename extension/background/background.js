@@ -29,20 +29,18 @@ chrome.runtime.onInstalled.addListener(async () => {
     const result =
         await chrome.storage.local.get([
             "websites",
-            "sessions"
+            "events"
         ]);
 
     if (!result.websites) {
-
         await chrome.storage.local.set({
             websites: DEFAULT_WEBSITES
         });
     }
 
-    if (!result.sessions) {
-
+    if (!result.events) {
         await chrome.storage.local.set({
-            sessions: []
+            events: []
         });
     }
 
@@ -169,28 +167,99 @@ function sendTabState(
 
 
 // =====================================================
-// MESSAGE FROM CONTENT SCRIPT
+// MESSAGE LISTENER
 // =====================================================
 
 chrome.runtime.onMessage.addListener(
     (message, sender, sendResponse) => {
 
+        // Handle Event Tracking
         if (
-            message.type === "ARTICLE_SESSION_COMPLETED"
+            message.type === "TRACK_EVENT"
         ) {
 
-            saveSession(
-                message.session
-            );
-
-            sendResponse({
-                success: true
-            });
+            saveEvent(message.event)
+                .then(() => {
+                    sendResponse({
+                        success: true
+                    });
+                });
 
             return true;
         }
 
 
+        // Query Raw Events
+        if (
+            message.type === "GET_EVENTS"
+        ) {
+
+            chrome.storage.local
+                .get("events")
+                .then(result => {
+
+                    sendResponse({
+                        success: true,
+                        events:
+                            result.events || []
+                    });
+
+                });
+
+            return true;
+        }
+
+
+        // Query Aggregated Sessions for Popup UI
+        if (
+            message.type === "GET_SESSIONS"
+        ) {
+
+            chrome.storage.local
+                .get("events")
+                .then(result => {
+
+                    const events =
+                        result.events || [];
+
+                    const sessions =
+                        getAggregatedSessions(events);
+
+                    sendResponse({
+                        success: true,
+                        sessions
+                    });
+
+                });
+
+            return true;
+        }
+
+
+        // Clear All Events / History
+        if (
+            message.type === "CLEAR_SESSIONS" ||
+            message.type === "CLEAR_EVENTS"
+        ) {
+
+            chrome.storage.local
+                .set({
+                    events: [],
+                    sessions: []
+                })
+                .then(() => {
+
+                    sendResponse({
+                        success: true
+                    });
+
+                });
+
+            return true;
+        }
+
+
+        // Get Current Active Tab
         if (
             message.type === "GET_CURRENT_TAB"
         ) {
@@ -208,124 +277,164 @@ chrome.runtime.onMessage.addListener(
             return true;
         }
 
-
-        if (
-            message.type === "GET_SESSIONS"
-        ) {
-
-            chrome.storage.local
-                .get("sessions")
-                .then(result => {
-
-                    sendResponse({
-                        success: true,
-                        sessions:
-                            result.sessions || []
-                    });
-
-                });
-
-            return true;
-        }
-
-
-        if (
-            message.type === "CLEAR_SESSIONS"
-        ) {
-
-            chrome.storage.local
-                .set({
-                    sessions: []
-                })
-                .then(() => {
-
-                    sendResponse({
-                        success: true
-                    });
-
-                });
-
-            return true;
-        }
-
     }
 );
 
 
 // =====================================================
-// SAVE SESSION
+// SAVE EVENT & SYNC TO CENTRAL SERVER
 // =====================================================
 
-async function saveSession(session) {
+const SERVER_API_URL = "http://localhost:3000/api/events";
 
-    if (!session || !session.url) {
+async function saveEvent(event) {
+
+    if (!event || !event.event_type) {
         return;
     }
 
-
+    // 1. Save locally in chrome.storage.local
     const result =
-        await chrome.storage.local.get("sessions");
+        await chrome.storage.local.get("events");
 
-    const sessions =
-        result.sessions || [];
+    const events =
+        result.events || [];
+
+    // Add new event at the beginning
+    events.unshift(event);
+
+    // Keep up to latest 1000 events
+    const limitedEvents =
+        events.slice(0, 1000);
+
+    await chrome.storage.local.set({
+        events: limitedEvents
+    });
+
+    // 2. Sync to Central Server asynchronously
+    syncEventToServer(event);
+
+}
+
+async function syncEventToServer(event) {
+
+    try {
+        await fetch(SERVER_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(event)
+        });
+    } catch {
+        // Central server might be offline, ignore gracefully
+    }
+
+}
 
 
-    const existingIndex =
-        sessions.findIndex(
-            s => s.url === session.url
-        );
+// =====================================================
+// AGGREGATE SESSIONS FROM EVENTS (GROUP BY URL)
+// =====================================================
 
+function getAggregatedSessions(events) {
 
-    if (existingIndex !== -1) {
+    if (!events || !Array.isArray(events) || events.length === 0) {
+        return [];
+    }
 
-        const existing =
-            sessions[existingIndex];
+    const sessionMap = new Map();
 
+    // Sort chronologically (oldest to newest) to replay state
+    const sortedEvents =
+        [...events].sort((a, b) => {
+            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        });
 
-        existing.readingTime =
-            (Number(existing.readingTime) || 0) +
-            (Number(session.readingTime) || 0);
+    for (const event of sortedEvents) {
 
+        // Group by URL so reloads of the same article merge into 1 card
+        const key = event.url;
 
-        existing.maxScrollPercent =
+        if (!key) {
+            continue;
+        }
+
+        if (!sessionMap.has(key)) {
+            sessionMap.set(key, {
+                sessionId: event.session_id,
+                url: event.url,
+                domain: event.domain,
+                title: event.title || "Untitled",
+                startTime: event.timestamp,
+                endTime: event.timestamp,
+                readingTime: 0,
+                maxScrollPercent: 0,
+                status: "ACTIVE", // ACTIVE | INACTIVE | COMPLETED
+                eventsCount: 0,
+                _sessionTimes: new Map()
+            });
+        }
+
+        const session = sessionMap.get(key);
+
+        session.eventsCount++;
+        session.endTime = event.timestamp;
+
+        if (event.title) {
+            session.title = event.title;
+        }
+        if (event.domain) {
+            session.domain = event.domain;
+        }
+
+        // Calculate max scroll
+        const scroll =
+            event.payload?.scroll_percent ||
+            event.payload?.max_scroll_percent ||
+            0;
+
+        session.maxScrollPercent =
             Math.max(
-                Number(existing.maxScrollPercent) || 0,
-                Number(session.maxScrollPercent) || 0
+                session.maxScrollPercent,
+                Number(scroll) || 0
             );
 
+        // Update active reading time per session_id to accumulate across reloads
+        const sid = event.session_id || 'default';
+        const sTime = Number(event.payload?.total_active_reading_time_sec ?? event.payload?.active_reading_time_sec ?? 0);
+        const currentSidTime = session._sessionTimes.get(sid) || 0;
+        session._sessionTimes.set(sid, Math.max(currentSidTime, sTime));
 
-        existing.endTime =
-            session.endTime;
-
-
-        if (session.title) {
-            existing.title = session.title;
+        let totalTime = 0;
+        for (const t of session._sessionTimes.values()) {
+            totalTime += t;
         }
+        session.readingTime = totalTime;
 
-
-        if (session.content) {
-            existing.content = session.content;
+        // Determine session status from latest event of this URL
+        if (event.event_type === "PAGE_LEAVE") {
+            session.status = "COMPLETED";
+        } else if (event.event_type === "PAGE_INACTIVE") {
+            session.status = "INACTIVE";
+        } else if (
+            event.event_type === "PAGE_ACTIVE" ||
+            event.event_type === "PAGE_ENTER"
+        ) {
+            session.status = "ACTIVE";
         }
-
-
-        // Remove from current position and move to top
-        sessions.splice(existingIndex, 1);
-        sessions.unshift(existing);
-
-    } else {
-
-        sessions.unshift(session);
 
     }
 
+    // Convert map to array and clean up temporary properties
+    const sessions = Array.from(sessionMap.values()).map(s => {
+        const { _sessionTimes, ...cleanSession } = s;
+        return cleanSession;
+    });
 
-    // Keep latest 100 sessions
-    const limitedSessions =
-        sessions.slice(0, 100);
-
-
-    await chrome.storage.local.set({
-        sessions: limitedSessions
+    // Sort by latest activity (endTime descending)
+    return sessions.sort((a, b) => {
+        return new Date(b.endTime).getTime() - new Date(a.endTime).getTime();
     });
 
 }

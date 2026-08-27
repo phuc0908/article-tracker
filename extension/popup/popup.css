@@ -104,6 +104,15 @@ h1 {
 }
 
 
+.session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+
 .session-title {
     font-weight: 600;
 
@@ -111,7 +120,31 @@ h1 {
 
     line-height: 20px;
 
-    margin-bottom: 4px;
+    flex: 1;
+}
+
+
+.status-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.status-badge.active {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-badge.inactive {
+    background: #fef9c3;
+    color: #a16207;
+}
+
+.status-badge.completed {
+    background: #f3f4f6;
+    color: #4b5563;
 }
 
 

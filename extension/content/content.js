@@ -101,11 +101,63 @@ let maxScrollPercent = 0;
 
 
     console.log(
-        "[Article Tracker] Session:",
+        "[Article Tracker] Session started:",
         sessionId
     );
 
+
+    // -------------------------------------------------
+    // EMIT PAGE_ENTER EVENT
+    // -------------------------------------------------
+    sendEvent("PAGE_ENTER", {
+        status: isPageVisible && isTabActive ? "active" : "inactive",
+        article_found: Boolean(extractArticleContent())
+    });
+
+
+    // If tab is currently active and focused, also emit PAGE_ACTIVE
+    if (isPageVisible && isTabActive) {
+        sendEvent("PAGE_ACTIVE", {
+            reason: "page_load"
+        });
+    }
+
 })();
+
+
+// =====================================================
+// SEND EVENT HELPER
+// =====================================================
+
+function sendEvent(eventType, payload = {}) {
+
+    if (!websiteConfig || !sessionId) {
+        return;
+    }
+
+    const eventObj = {
+        event_id: crypto.randomUUID(),
+        event_type: eventType,
+        session_id: sessionId,
+        url: location.href,
+        domain: location.hostname,
+        title: document.title || websiteConfig.name,
+        timestamp: new Date().toISOString(),
+        payload: {
+            scroll_percent: maxScrollPercent,
+            active_reading_time_sec: Math.round(readingTime / 1000),
+            ...payload
+        }
+    };
+
+    chrome.runtime.sendMessage({
+        type: "TRACK_EVENT",
+        event: eventObj
+    }).catch(() => {
+        // Content script might be detached or background sleeping
+    });
+
+}
 
 
 // =====================================================
@@ -232,6 +284,10 @@ function registerVisibilityListener() {
 
                 isPageVisible = false;
 
+                sendEvent("PAGE_INACTIVE", {
+                    reason: "visibility_hidden"
+                });
+
             } else {
 
                 isPageVisible = true;
@@ -241,6 +297,10 @@ function registerVisibilityListener() {
 
                 lastCalculationTime =
                     Date.now();
+
+                sendEvent("PAGE_ACTIVE", {
+                    reason: "visibility_visible"
+                });
 
             }
 
@@ -269,6 +329,10 @@ chrome.runtime.onMessage.addListener(
             lastCalculationTime =
                 Date.now();
 
+            sendEvent("PAGE_ACTIVE", {
+                reason: "tab_active"
+            });
+
         }
 
 
@@ -282,6 +346,10 @@ chrome.runtime.onMessage.addListener(
 
             lastCalculationTime =
                 Date.now();
+
+            sendEvent("PAGE_INACTIVE", {
+                reason: "tab_inactive"
+            });
 
         }
 
@@ -356,12 +424,30 @@ function updateScrollProgress() {
 // READING TIMER
 // =====================================================
 
+let heartbeatCount = 0;
+
 function startReadingTimer() {
 
-    setInterval(
-        calculateReadingTime,
-        CALCULATION_INTERVAL
-    );
+    setInterval(() => {
+
+        calculateReadingTime();
+
+        heartbeatCount++;
+
+        // Send active heartbeat every 5 seconds if active
+        if (
+            heartbeatCount % 5 === 0 &&
+            isPageVisible &&
+            isTabActive &&
+            document.hasFocus() &&
+            (Date.now() - lastActivityTime <= IDLE_THRESHOLD)
+        ) {
+            sendEvent("PAGE_ACTIVE", {
+                reason: "heartbeat"
+            });
+        }
+
+    }, CALCULATION_INTERVAL);
 
 }
 
@@ -588,22 +674,23 @@ function endSession() {
     calculateReadingTime(true);
 
 
-    const session =
-        createSessionData();
+    // Emit PAGE_LEAVE event
+    sendEvent("PAGE_LEAVE", {
+        total_active_reading_time_sec:
+            Math.round(
+                readingTime / 1000
+            ),
+        max_scroll_percent:
+            maxScrollPercent,
+        exit_type:
+            "pagehide"
+    });
 
 
     console.log(
         "[Article Tracker] Session completed:",
-        session
+        sessionId
     );
-
-
-    chrome.runtime.sendMessage({
-        type:
-            "ARTICLE_SESSION_COMPLETED",
-
-        session
-    });
 
 }
 

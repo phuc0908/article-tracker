@@ -37,7 +37,7 @@ refreshButton.addEventListener(
         await loadSessions();
 
         refreshButton.disabled = false;
-        refreshButton.innerText = "Refresh";
+        refreshButton.innerText = "🔄 Refresh";
 
     }
 );
@@ -200,11 +200,29 @@ function renderSession(
         session.maxScrollPercent || 0;
 
 
+    // Status badge configuration
+    let statusClass = "completed";
+    let statusText = "🏁 Đã xong";
+
+    if (session.status === "ACTIVE") {
+        statusClass = "active";
+        statusText = "🟢 Đang đọc";
+    } else if (session.status === "INACTIVE") {
+        statusClass = "inactive";
+        statusText = "⏸️ Tạm dừng";
+    }
+
+
     return `
         <div class="session-card">
 
-            <div class="session-title">
-                ${title}
+            <div class="session-header">
+                <div class="session-title">
+                    ${title}
+                </div>
+                <span class="status-badge ${statusClass}">
+                    ${statusText}
+                </span>
             </div>
 
             <div class="session-domain">
@@ -233,7 +251,6 @@ function renderSession(
 
         </div>
     `;
-
 }
 
 
