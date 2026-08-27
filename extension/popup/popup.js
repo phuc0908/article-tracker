@@ -7,11 +7,6 @@ const sessionsContainer =
         "sessions"
     );
 
-const refreshButton =
-    document.getElementById(
-        "refreshButton"
-    );
-
 const settingsButton =
     document.getElementById(
         "settingsButton"
@@ -21,26 +16,6 @@ const clearButton =
     document.getElementById(
         "clearButton"
     );
-
-
-// =====================================================
-// REFRESH
-// =====================================================
-
-refreshButton.addEventListener(
-    "click",
-    async () => {
-
-        refreshButton.disabled = true;
-        refreshButton.innerText = "⏳ Loading...";
-
-        await loadSessions();
-
-        refreshButton.disabled = false;
-        refreshButton.innerText = "🔄 Refresh";
-
-    }
-);
 
 
 // =====================================================

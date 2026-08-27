@@ -73,17 +73,6 @@ h1 {
 }
 
 
-.secondary {
-    background: #e5e7eb;
-
-    color: #374151;
-}
-
-.secondary:hover {
-    background: #d1d5db;
-}
-
-
 .danger {
     background: #fee2e2;
 
