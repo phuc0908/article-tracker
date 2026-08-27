@@ -1,56 +1,62 @@
 # Article Tracker
 
-A Chrome extension that tracks article reading sessions — including active reading time, scroll depth, and article content — across configurable news websites.
+A Chrome extension and Central Server that tracks article reading sessions — including active reading time, scroll depth, and article content — across configurable news websites.
 
 ---
 
 ## System Architecture
 
 ```
-extension/
-├── manifest.json          # Manifest V3 config
-├── background/
-│   └── background.js      # Service Worker — tab/window focus events, session storage
-├── content/
-│   └── content.js         # Content Script — reading timer, scroll tracking, session lifecycle
-├── popup/
-│   ├── popup.html
-│   ├── popup.css
-│   └── popup.js           # Session list UI — view, refresh, clear history
-└── options/
-    ├── options.html
-    ├── options.css
-    └── options.js         # Website management UI — add, edit, delete tracked sites
+article-tracker/
+├── extension/             # Chrome Extension (Manifest V3)
+│   ├── manifest.json
+│   ├── background/background.js
+│   ├── content/content.js
+│   ├── popup/
+│   └── options/
+└── server/                # Central Server (Node.js/Express + SQLite)
+    ├── package.json
+    ├── server.js          # Express app (:3000)
+    ├── db.js              # SQLite database manager
+    ├── middleware/
+    │   └── validator.js   # Event schema validation
+    ├── routes/
+    │   ├── events.js      # POST/GET /api/events
+    │   ├── sessions.js    # GET /api/sessions, GET /api/sessions/:id
+    │   └── articles.js    # GET /api/articles
+    └── data/
+        └── tracker.db     # SQLite database file
 ```
-
-**Data flow:**
-
-```
-Content Script  →  chrome.runtime.sendMessage  →  Background (Service Worker)
-                                                        ↓
-                                               chrome.storage.local
-                                                        ↑
-Popup / Options  ←  chrome.runtime.sendMessage  ────────┘
-```
-
-- **Content Script** detects tab focus, page visibility, and user activity; accumulates active reading time; sends a session object on `pagehide`.
-- **Background Service Worker** handles tab/window events, relays focus state to content scripts, and persists sessions in `chrome.storage.local`.
-- **Popup** displays the reading history list (up to 100 sessions).
-- **Options Page** manages the list of tracked websites (domain + CSS selector).
 
 ---
 
-## Completed Features
+## Central Server REST APIs
 
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/events` | `POST` | Receive event from extension (validates schema, stores into SQLite) |
+| `/api/events` | `GET` | Query raw event log with optional `session_id`, `url`, `event_type` filters |
+| `/api/sessions` | `GET` | Query aggregated reading sessions (`limit`, `offset`, `domain`, `status`) |
+| `/api/sessions/:id` | `GET` | Query specific session details with full event timeline |
+| `/api/articles` | `GET` | Query unique tracked articles with aggregated reading time & session counts |
+| `/api/stats` | `GET` | Overview statistics (total events, sessions, articles, reading time) |
 
-## Limitations / Incomplete Features
+---
 
+## Installation & Running
 
-## Installation
+### 1. Run Central Server
+
+```bash
+cd server
+npm install
+npm start
+```
+Server runs at `http://localhost:3000`.
+
+### 2. Install Chrome Extension
 
 1. Open Chrome and navigate to `chrome://extensions/`.
-2. Enable **Developer mode**.
+2. Enable **Developer mode** (top right).
 3. Click **Load unpacked** and select the `extension/` folder.
-4. The extension icon will appear in the toolbar.
-
-
+4. The extension will automatically track articles and sync events to the Central Server.
