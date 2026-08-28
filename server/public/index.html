@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Tracker - Real-time Analytics & Reading Dashboard</title>
+    <meta name="description" content="Hệ thống theo dõi, thống kê thời gian thực và trực quan hóa dữ liệu bài báo người dùng đã đọc với AI Summary và Event Timeline.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+
+    <div class="dashboard-container">
+
+        <!-- =====================================================
+             DASHBOARD HEADER
+             ===================================================== -->
+        <header class="dashboard-header">
+            <div class="brand-section">
+                <div class="brand-logo">📊</div>
+                <div class="brand-info">
+                    <h1>Article Tracker Dashboard</h1>
+                    <p>Hệ thống giám sát & Thống kê hành vi đọc bài báo theo thời gian thực</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div class="live-indicator" id="liveIndicator">
+                    <span class="pulse-dot" id="pulseDot"></span>
+                    <span id="liveStatusText">Real-time Live</span>
+                </div>
+                <span id="lastUpdatedTime" style="font-size: 12px; color: var(--text-muted);">Cập nhật: Vừa xong</span>
+                <button class="btn btn-primary" id="refreshBtn" title="Làm mới dữ liệu">
+                    <span>🔄</span> Làm mới
+                </button>
+            </div>
+        </header>
+
+        <!-- =====================================================
+             REAL-TIME EVENT TICKER
+             ===================================================== -->
+        <div class="ticker-container">
+            <div class="ticker-label">
+                <span>⚡ Live Feed</span>
+            </div>
+            <div class="ticker-content" id="tickerText">
+                <span class="ticker-tag" style="background: var(--accent-indigo); color: white;">IDLE</span>
+                Đang lắng nghe sự kiện đọc bài từ Chrome Extension...
+            </div>
+        </div>
+
+        <!-- =====================================================
+             KPI STAT CARDS
+             ===================================================== -->
+        <section class="kpi-grid">
+            <!-- Total Articles -->
+            <div class="kpi-card" style="--card-accent: var(--accent-indigo); --icon-bg: rgba(99, 102, 241, 0.15); --icon-color: var(--accent-indigo);">
+                <div class="kpi-header">
+                    <span class="kpi-title">Bài báo đã đọc</span>
+                    <div class="kpi-icon">📰</div>
+                </div>
+                <div class="kpi-value" id="kpiArticles">0</div>
+                <div class="kpi-subtext">
+                    <span class="kpi-trend">Đã ghi nhận</span> trong hệ cơ sở dữ liệu
+                </div>
+            </div>
+
+            <!-- Total Reading Time -->
+            <div class="kpi-card" style="--card-accent: var(--accent-cyan); --icon-bg: rgba(6, 182, 212, 0.15); --icon-color: var(--accent-cyan);">
+                <div class="kpi-header">
+                    <span class="kpi-title">Tổng thời gian đọc</span>
+                    <div class="kpi-icon">⏱</div>
+                </div>
+                <div class="kpi-value" id="kpiTime">0s</div>
+                <div class="kpi-subtext">
+                    <span class="kpi-trend">Active Reading</span> thực tế của người dùng
+                </div>
+            </div>
+
+            <!-- Avg Scroll Depth -->
+            <div class="kpi-card" style="--card-accent: var(--accent-emerald); --icon-bg: rgba(16, 185, 129, 0.15); --icon-color: var(--accent-emerald);">
+                <div class="kpi-header">
+                    <span class="kpi-title">Độ sâu cuộn trung bình</span>
+                    <div class="kpi-icon">↕</div>
+                </div>
+                <div class="kpi-value" id="kpiScroll">0%</div>
+                <div class="kpi-subtext">
+                    <span class="kpi-trend">Mức độ đọc sâu</span> toàn bài viết
+                </div>
+            </div>
+
+            <!-- Total Sessions -->
+            <div class="kpi-card" style="--card-accent: var(--accent-purple); --icon-bg: rgba(168, 85, 247, 0.15); --icon-color: var(--accent-purple);">
+                <div class="kpi-header">
+                    <span class="kpi-title">Tổng số phiên đọc</span>
+                    <div class="kpi-icon">🎯</div>
+                </div>
+                <div class="kpi-value" id="kpiSessions">0</div>
+                <div class="kpi-subtext">
+                    <span class="kpi-trend">Lượt tương tác</span> trên các trang báo
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================
+             ANALYTICS CHARTS SECTION
+             ===================================================== -->
+        <section class="charts-grid">
+            <!-- Chart 1: Reading Trends -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <h3>Xu hướng thời gian đọc theo chu kỳ</h3>
+                        <p>Thời lượng đọc tích lũy qua từng đợt truy cập bài viết</p>
+                    </div>
+                </div>
+                <div class="chart-body">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Domain Distribution -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <h3>Tỷ trọng nguồn báo</h3>
+                        <p>Phân bổ thời gian đọc theo từng tờ báo</p>
+                    </div>
+                </div>
+                <div class="chart-body">
+                    <canvas id="domainChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Secondary Charts Row -->
+        <section class="secondary-charts-grid">
+            <!-- Chart 3: Scroll Depth Distribution -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <h3>Phân bố độ sâu cuộn trang (% Scroll)</h3>
+                        <p>Số lượng bài báo theo mức độ cuộn xuống xem nội dung</p>
+                    </div>
+                </div>
+                <div class="chart-body">
+                    <canvas id="scrollChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Hourly Activity Distribution -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <h3>Tần suất đọc theo khung giờ (0h - 23h)</h3>
+                        <p>Mật độ hoạt động đọc bài báo trong ngày</p>
+                    </div>
+                </div>
+                <div class="chart-body">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================
+             DATA TABLE & FILTER SECTION (CÂU 4A)
+             ===================================================== -->
+        <section class="table-section">
+            <div class="table-header-bar">
+                <div class="table-title">
+                    <h3>Danh sách bài báo đã đọc & Phân tích chi tiết</h3>
+                    <p id="tableCountText">Đang tải dữ liệu...</p>
+                </div>
+
+                <div class="table-controls">
+                    <!-- Search Input -->
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchInput" placeholder="Tìm theo tiêu đề, URL, nội dung...">
+                    </div>
+
+                    <!-- Domain Filter -->
+                    <select id="domainFilter" class="filter-select">
+                        <option value="">Tất cả nguồn báo</option>
+                    </select>
+
+                    <!-- Status Filter -->
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="ACTIVE">Đang đọc (Active)</option>
+                        <option value="INACTIVE">Tạm dừng (Inactive)</option>
+                        <option value="COMPLETED">Đã đọc xong (Completed)</option>
+                    </select>
+
+                    <!-- Sort Options -->
+                    <select id="sortSelect" class="filter-select">
+                        <option value="last_seen_desc">Đọc gần đây nhất</option>
+                        <option value="reading_time_desc">Thời gian đọc lâu nhất</option>
+                        <option value="scroll_desc">Độ cuộn trang cao nhất</option>
+                        <option value="sessions_desc">Số lượt đọc nhiều nhất</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 280px;">Tiêu đề & Nguồn</th>
+                            <th>Trạng thái</th>
+                            <th>Tổng thời gian đọc</th>
+                            <th>Độ sâu cuộn</th>
+                            <th>Tóm tắt nhanh (TL;DR)</th>
+                            <th>Thời gian đọc</th>
+                            <th style="text-align: center;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="articlesTableBody">
+                        <!-- Loaded dynamically via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- =====================================================
+         ARTICLE DETAIL & TIMELINE MODAL (CÂU 4A)
+         ===================================================== -->
+    <div class="modal-overlay" id="articleModal">
+        <div class="modal-card">
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <h2 id="modalTitle">Tiêu đề bài báo</h2>
+                    <a id="modalUrlLink" href="#" target="_blank" class="modal-url">https://...</a>
+                </div>
+                <button class="modal-close-btn" id="modalCloseBtn" title="Đóng">&times;</button>
+            </div>
+
+            <!-- Modal Key Stats Bar -->
+            <div class="modal-stats-bar">
+                <div class="modal-stat-item">
+                    Nguồn báo
+                    <strong id="modalDomainBadge">-</strong>
+                </div>
+                <div class="modal-stat-item">
+                    Trạng thái
+                    <div><span id="modalStatusBadge" class="status-badge completed">Đã xong</span></div>
+                </div>
+                <div class="modal-stat-item">
+                    Tổng thời gian đọc
+                    <strong id="modalReadingTime">0s</strong>
+                </div>
+                <div class="modal-stat-item">
+                    Cuộn trang / Phiên
+                    <strong><span id="modalScroll">0%</span> (<span id="modalSessions">1</span> lượt, <span id="modalEventsCount">0</span> events)</strong>
+                </div>
+            </div>
+
+            <!-- Modal Navigation Tabs -->
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" id="modalTabSummary">
+                    ✨ Nội dung tóm tắt
+                </button>
+                <button class="modal-tab-btn" id="modalTabContent">
+                    📄 Nội dung bài báo <span id="wordCountBadge" style="font-size: 11px; font-weight: normal; color: var(--text-muted); margin-left: 6px;"></span>
+                </button>
+                <button class="modal-tab-btn" id="modalTabTimeline">
+                    ⏱ Timeline các event
+                </button>
+            </div>
+
+            <!-- Modal Body Content -->
+            <div class="modal-body">
+                <!-- Tab 1: Summary -->
+                <div id="modalSummaryView"></div>
+
+                <!-- Tab 2: Full Content -->
+                <div id="modalContentView" style="display: none;"></div>
+
+                <!-- Tab 3: Event Timeline -->
+                <div id="modalTimelineView" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/charts.js"></script>
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

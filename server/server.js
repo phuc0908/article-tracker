@@ -25,6 +25,9 @@ app.use((req, res, next) => {
     next();
 });
 
+// Serve static dashboard files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // API Routes
 app.use('/api/events', eventsRouter);
 app.use('/api/sessions', sessionsRouter);
@@ -40,13 +43,23 @@ app.get('/api/stats', (req, res) => {
         const totalArticles = db.prepare('SELECT COUNT(*) AS c FROM articles').get()?.c || 0;
         const totalSessions = db.prepare('SELECT COUNT(DISTINCT session_id) AS c FROM events').get()?.c || 0;
         const totalReadingTime = db.prepare('SELECT SUM(total_reading_time_sec) AS s FROM articles').get()?.s || 0;
+        const avgScroll = db.prepare('SELECT AVG(max_scroll_percent) AS a FROM articles').get()?.a || 0;
 
         const topDomains = db.prepare(`
             SELECT domain, COUNT(*) AS count, SUM(total_reading_time_sec) AS total_reading_time
             FROM articles
             GROUP BY domain
             ORDER BY count DESC
-            LIMIT 5
+            LIMIT 10
+        `).all();
+
+        // Hourly reading distribution for charts
+        const hourlyDistribution = db.prepare(`
+            SELECT strftime('%H', timestamp) AS hour, COUNT(*) AS event_count
+            FROM events
+            WHERE event_type IN ('PAGE_ENTER', 'PAGE_ACTIVE')
+            GROUP BY hour
+            ORDER BY hour ASC
         `).all();
 
         res.json({
@@ -57,7 +70,9 @@ app.get('/api/stats', (req, res) => {
                 total_articles: totalArticles,
                 total_reading_time_sec: totalReadingTime,
                 total_reading_time_min: Math.round(totalReadingTime / 60),
-                top_domains: topDomains
+                avg_scroll_percent: Math.round(avgScroll),
+                top_domains: topDomains,
+                hourly_distribution: hourlyDistribution
             }
         });
     } catch (err) {
@@ -69,19 +84,27 @@ app.get('/api/stats', (req, res) => {
     }
 });
 
+// Root / Dashboard route
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Root Health Check & API documentation
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
     res.json({
         name: 'Article Tracker Central Server',
         status: 'running',
         version: '1.0.0',
         endpoints: {
+            'GET  /dashboard': 'Web Real-time Analytics Dashboard',
             'POST /api/events': 'Record event data from Chrome Extension',
-            'GET /api/events': 'Query raw events list',
-            'GET /api/sessions': 'Query aggregated reading sessions',
-            'GET /api/sessions/:id': 'Query single session detail with timeline',
-            'GET /api/articles': 'Query tracked unique articles and stats',
-            'GET /api/stats': 'Overview statistics'
+            'GET  /api/events': 'Query raw events list',
+            'GET  /api/events/stream': 'SSE Real-time live event stream',
+            'GET  /api/sessions': 'Query aggregated reading sessions',
+            'GET  /api/sessions/:id': 'Query single session detail with timeline',
+            'GET  /api/articles': 'Query tracked unique articles and stats',
+            'GET  /api/articles/detail': 'Query single article with full content & timeline',
+            'GET  /api/stats': 'Overview statistics'
         }
     });
 });

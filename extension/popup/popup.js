@@ -177,14 +177,14 @@ function renderSession(
 
     // Status badge configuration
     let statusClass = "completed";
-    let statusText = "🏁 Đã xong";
+    let statusText = "Đã xong";
 
     if (session.status === "ACTIVE") {
         statusClass = "active";
-        statusText = "🟢 Đang đọc";
+        statusText = "Đang đọc";
     } else if (session.status === "INACTIVE") {
         statusClass = "inactive";
-        statusText = "⏸️ Tạm dừng";
+        statusText = "⏸Tạm dừng";
     }
 
 

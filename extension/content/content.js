@@ -109,9 +109,14 @@ let maxScrollPercent = 0;
     // -------------------------------------------------
     // EMIT PAGE_ENTER EVENT
     // -------------------------------------------------
+    const extractedContent = extractArticleContent();
+    const extractedSummary = extractArticleSummary(extractedContent);
+
     sendEvent("PAGE_ENTER", {
         status: isPageVisible && isTabActive ? "active" : "inactive",
-        article_found: Boolean(extractArticleContent())
+        article_found: Boolean(extractedContent),
+        content: extractedContent,
+        summary: extractedSummary
     });
 
 
@@ -598,6 +603,49 @@ function extractArticleContent() {
             error
         );
 
+        return "";
+    }
+
+}
+
+
+// =====================================================
+// EXTRACT ARTICLE SUMMARY
+// =====================================================
+
+function extractArticleSummary(content = "") {
+
+    try {
+        // Try known sapo/description selectors
+        const sapoSelectors = [
+            ".description",
+            ".singular-sapo",
+            ".sapo",
+            ".detail-sapo",
+            "meta[name='description']",
+            "meta[property='og:description']"
+        ];
+
+        for (const sel of sapoSelectors) {
+            const el = document.querySelector(sel);
+            if (el) {
+                const text = el.tagName === "META" ? el.getAttribute("content") : el.innerText;
+                if (text && text.trim().length > 20) {
+                    return text.trim();
+                }
+            }
+        }
+
+        // Fallback to first paragraph of content
+        if (content) {
+            const paragraphs = content.split(/\n+/).filter(p => p.trim().length > 30);
+            if (paragraphs.length > 0) {
+                return paragraphs[0].trim();
+            }
+        }
+
+        return "";
+    } catch {
         return "";
     }
 

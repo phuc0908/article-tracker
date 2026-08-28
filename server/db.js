@@ -42,6 +42,8 @@ db.exec(`
         url TEXT PRIMARY KEY,
         domain TEXT NOT NULL,
         title TEXT,
+        content TEXT,
+        summary TEXT,
         first_seen TEXT NOT NULL,
         last_seen TEXT NOT NULL,
         total_sessions INTEGER DEFAULT 1,
@@ -52,6 +54,37 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_articles_domain ON articles(domain);
     CREATE INDEX IF NOT EXISTS idx_articles_last_seen ON articles(last_seen);
 `);
+
+// Auto-migrate articles table if content/summary columns do not exist
+try {
+    const tableInfo = db.prepare(`PRAGMA table_info(articles)`).all();
+    const columnNames = new Set(tableInfo.map(col => col.name));
+    if (!columnNames.has('content')) {
+        db.exec(`ALTER TABLE articles ADD COLUMN content TEXT;`);
+    }
+    if (!columnNames.has('summary')) {
+        db.exec(`ALTER TABLE articles ADD COLUMN summary TEXT;`);
+    }
+} catch (migErr) {
+    console.warn('Migration note:', migErr.message);
+}
+
+/**
+ * Intelligent extractive text summarizer helper
+ */
+function generateSmartSummary(content, maxSentences = 3) {
+    if (!content || typeof content !== 'string') return '';
+    const clean = content.trim().replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
+    if (clean.length <= 250) return clean;
+
+    // Split sentences respecting Vietnamese and English punctuation
+    const sentences = clean.match(/[^.!?]+[.!?]+(\s|$)/g) || [clean];
+    const picked = sentences.slice(0, maxSentences).join(' ').trim();
+    if (picked.length > 350) {
+        return picked.substring(0, 347) + '...';
+    }
+    return picked || clean.substring(0, 300) + '...';
+}
 
 /**
  * Insert a single validated event and update article summary
@@ -92,26 +125,34 @@ function updateArticleSummary(url, domain, title, timestamp, event) {
     const payload = typeof event.payload === 'string' ? JSON.parse(event.payload || '{}') : (event.payload || {});
     const readingTime = Number(payload.active_reading_time_sec || payload.total_active_reading_time_sec || 0);
     const scrollPercent = Number(payload.scroll_percent || payload.max_scroll_percent || 0);
+    const content = payload.content || event.content || null;
+    let summary = payload.summary || event.summary || (content ? generateSmartSummary(content) : null);
 
     const existingStmt = db.prepare(`SELECT * FROM articles WHERE url = ?`);
     const existing = existingStmt.get(url);
 
     if (existing) {
+        const finalContent = content || existing.content || '';
+        const finalSummary = summary || existing.summary || (finalContent ? generateSmartSummary(finalContent) : '');
+
         const updateStmt = db.prepare(`
             UPDATE articles
             SET title = COALESCE(NULLIF(?, ''), title),
+                content = COALESCE(NULLIF(?, ''), content),
+                summary = COALESCE(NULLIF(?, ''), summary),
                 last_seen = ?,
                 max_scroll_percent = MAX(max_scroll_percent, ?),
                 total_reading_time_sec = MAX(total_reading_time_sec, total_reading_time_sec + ?)
             WHERE url = ?
         `);
-        updateStmt.run(title, timestamp, scrollPercent, event.event_type === 'PAGE_LEAVE' ? readingTime : 0, url);
+        updateStmt.run(title, finalContent, finalSummary, timestamp, scrollPercent, event.event_type === 'PAGE_LEAVE' ? readingTime : 0, url);
     } else {
+        const finalSummary = summary || (content ? generateSmartSummary(content) : '');
         const insertStmt = db.prepare(`
-            INSERT INTO articles (url, domain, title, first_seen, last_seen, total_sessions, total_reading_time_sec, max_scroll_percent)
-            VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+            INSERT INTO articles (url, domain, title, content, summary, first_seen, last_seen, total_sessions, total_reading_time_sec, max_scroll_percent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
         `);
-        insertStmt.run(url, domain, title, timestamp, timestamp, readingTime, scrollPercent);
+        insertStmt.run(url, domain, title, content || '', finalSummary, timestamp, timestamp, readingTime, scrollPercent);
     }
 }
 
@@ -126,5 +167,6 @@ function extractDomain(urlStr) {
 
 module.exports = {
     db,
-    insertEvent
+    insertEvent,
+    generateSmartSummary
 };

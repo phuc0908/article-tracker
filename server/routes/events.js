@@ -3,6 +3,41 @@ const router = express.Router();
 const { db, insertEvent } = require('../db');
 const { validateEvent } = require('../middleware/validator');
 
+// SSE Clients registry for real-time live events
+const sseClients = new Set();
+
+function broadcastEvent(event) {
+    if (sseClients.size === 0) return;
+    const data = `data: ${JSON.stringify(event)}\n\n`;
+    for (const client of sseClients) {
+        try {
+            client.write(data);
+        } catch {
+            sseClients.delete(client);
+        }
+    }
+}
+
+/**
+ * GET /api/events/stream
+ * Server-Sent Events (SSE) stream for real-time live dashboard updates
+ */
+router.get('/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    // Initial connection ping
+    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: new Date().toISOString() })}\n\n`);
+
+    sseClients.add(res);
+
+    req.on('close', () => {
+        sseClients.delete(res);
+    });
+});
+
 /**
  * POST /api/events
  * Receive and store event(s) from Chrome Extension
@@ -15,6 +50,13 @@ router.post('/', validateEvent, (req, res) => {
         for (const event of events) {
             const eventId = insertEvent(event);
             insertedIds.push(eventId);
+            broadcastEvent({
+                type: 'NEW_EVENT',
+                event: {
+                    ...event,
+                    event_id: eventId
+                }
+            });
         }
 
         res.status(201).json({
