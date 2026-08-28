@@ -84,6 +84,27 @@ app.get('/api/stats', (req, res) => {
     }
 });
 
+// Reset Database endpoint
+app.post('/api/reset', (req, res) => {
+    try {
+        db.exec(`
+            DELETE FROM events;
+            DELETE FROM articles;
+            VACUUM;
+        `);
+        res.json({
+            success: true,
+            message: 'Database has been successfully cleared.'
+        });
+    } catch (err) {
+        console.error('Error clearing database:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to reset database.'
+        });
+    }
+});
+
 // Root / Dashboard route
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
