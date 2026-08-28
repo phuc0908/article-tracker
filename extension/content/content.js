@@ -11,23 +11,15 @@ const CALCULATION_INTERVAL = 1000;
 // =====================================================
 
 let websiteConfig = null;
-
 let sessionId = null;
-
 let startTime = null;
-
 let lastActivityTime = null;
-
 let lastCalculationTime = null;
-
 let readingTime = 0;
-
 let isTabActive = document.hasFocus();
-
 let isPageVisible = document.visibilityState === "visible";
-
+let isUserIdle = false;
 let sessionEnded = false;
-
 let maxScrollPercent = 0;
 
 
@@ -37,74 +29,30 @@ let maxScrollPercent = 0;
 
 (async function init() {
 
-    websiteConfig =
-        await findWebsiteConfig();
+    websiteConfig = await findWebsiteConfig();
 
-
-    // Website không nằm trong danh sách
     if (!websiteConfig) {
-
-        console.log(
-            "[Article Tracker] Ignored:",
-            location.hostname
-        );
-
         return;
     }
 
-
-    console.log(
-        "[Article Tracker] Tracking:",
-        websiteConfig.name
-    );
-
-
-    // Create session
-    sessionId =
-        crypto.randomUUID();
-
-
-    startTime =
-        Date.now();
-
-
-    lastActivityTime =
-        Date.now();
-
-
-    lastCalculationTime =
-        Date.now();
-
+    sessionId = crypto.randomUUID();
+    startTime = Date.now();
+    lastActivityTime = Date.now();
+    lastCalculationTime = Date.now();
+    isUserIdle = false;
 
     // Check current visibility & tab focus state
-    isPageVisible =
-        document.visibilityState === "visible";
+    isPageVisible = document.visibilityState === "visible";
+    isTabActive = document.hasFocus();
 
-    isTabActive =
-        document.hasFocus();
-
-
-    // Track activity
+    // Register all listeners
     registerActivityListeners();
-
-
-    // Track visibility
     registerVisibilityListener();
-
-
-    // Track scroll
+    registerFocusListeners();
     registerScrollListener();
-
 
     // Start timer
     startReadingTimer();
-
-
-    console.log(
-        "[Article Tracker] Session started:",
-        sessionId
-    );
-
 
     // -------------------------------------------------
     // EMIT PAGE_ENTER EVENT
@@ -119,8 +67,7 @@ let maxScrollPercent = 0;
         summary: extractedSummary
     });
 
-
-    // If tab is currently active and focused, also emit PAGE_ACTIVE
+    // If tab is currently visible, active and focused, emit PAGE_ACTIVE
     if (isPageVisible && isTabActive) {
         sendEvent("PAGE_ACTIVE", {
             reason: "page_load"
@@ -171,36 +118,13 @@ function sendEvent(eventType, payload = {}) {
 
 async function findWebsiteConfig() {
 
-    const result =
-        await chrome.storage.local.get(
-            "websites"
-        );
-
-
-    const websites =
-        result.websites || [];
-
-
-    const hostname =
-        location.hostname
-            .toLowerCase();
-
+    const result = await chrome.storage.local.get("websites");
+    const websites = result.websites || [];
+    const hostname = location.hostname.toLowerCase();
 
     return websites.find(site => {
-
-        const domain =
-            normalizeDomain(
-                site.domain
-            );
-
-
-        return (
-            hostname === domain ||
-            hostname.endsWith(
-                "." + domain
-            )
-        );
-
+        const domain = normalizeDomain(site.domain);
+        return hostname === domain || hostname.endsWith("." + domain);
     }) || null;
 
 }
@@ -211,23 +135,12 @@ async function findWebsiteConfig() {
 // =====================================================
 
 function normalizeDomain(domain) {
-
     return domain
         .toLowerCase()
         .trim()
-        .replace(
-            /^https?:\/\//,
-            ""
-        )
-        .replace(
-            /^www\./,
-            ""
-        )
-        .replace(
-            /\/.*$/,
-            ""
-        );
-
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .replace(/\/.*$/, "");
 }
 
 
@@ -236,7 +149,6 @@ function normalizeDomain(domain) {
 // =====================================================
 
 function registerActivityListeners() {
-
     const events = [
         "scroll",
         "mousemove",
@@ -245,31 +157,27 @@ function registerActivityListeners() {
         "touchstart"
     ];
 
-
     events.forEach(eventName => {
-
         window.addEventListener(
             eventName,
             handleUserActivity,
-            {
-                passive: true
-            }
+            { passive: true }
         );
-
     });
-
 }
 
-
-// =====================================================
-// USER ACTIVITY
-// =====================================================
-
 function handleUserActivity() {
+    const wasIdle = isUserIdle;
+    lastActivityTime = Date.now();
 
-    lastActivityTime =
-        Date.now();
-
+    // User resumed activity after being idle
+    if (wasIdle && isPageVisible && isTabActive && !sessionEnded) {
+        isUserIdle = false;
+        lastCalculationTime = Date.now();
+        sendEvent("PAGE_ACTIVE", {
+            reason: "user_resume"
+        });
+    }
 }
 
 
@@ -278,40 +186,59 @@ function handleUserActivity() {
 // =====================================================
 
 function registerVisibilityListener() {
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            calculateReadingTime(true);
+            isPageVisible = false;
+            sendEvent("PAGE_INACTIVE", {
+                reason: "visibility_hidden"
+            });
+        } else {
+            isPageVisible = true;
+            isTabActive = document.hasFocus();
+            isUserIdle = false;
+            lastActivityTime = Date.now();
+            lastCalculationTime = Date.now();
 
-    document.addEventListener(
-        "visibilitychange",
-        () => {
-
-            if (document.visibilityState === "hidden") {
-
-                calculateReadingTime(true);
-
-                isPageVisible = false;
-
-                sendEvent("PAGE_INACTIVE", {
-                    reason: "visibility_hidden"
-                });
-
-            } else {
-
-                isPageVisible = true;
-
-                lastActivityTime =
-                    Date.now();
-
-                lastCalculationTime =
-                    Date.now();
-
+            if (isTabActive) {
                 sendEvent("PAGE_ACTIVE", {
                     reason: "visibility_visible"
                 });
-
             }
-
         }
-    );
+    });
+}
 
+
+// =====================================================
+// WINDOW FOCUS LISTENERS
+// =====================================================
+
+function registerFocusListeners() {
+    window.addEventListener("focus", () => {
+        isTabActive = true;
+        isPageVisible = document.visibilityState === "visible";
+        isUserIdle = false;
+        lastActivityTime = Date.now();
+        lastCalculationTime = Date.now();
+
+        if (isPageVisible) {
+            sendEvent("PAGE_ACTIVE", {
+                reason: "window_focus"
+            });
+        }
+    });
+
+    window.addEventListener("blur", () => {
+        if (isTabActive) {
+            calculateReadingTime(true);
+            isTabActive = false;
+            lastCalculationTime = Date.now();
+            sendEvent("PAGE_INACTIVE", {
+                reason: "window_blur"
+            });
+        }
+    });
 }
 
 
@@ -319,47 +246,32 @@ function registerVisibilityListener() {
 // TAB STATE FROM BACKGROUND
 // =====================================================
 
-chrome.runtime.onMessage.addListener(
-    (message) => {
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === "TAB_ACTIVE") {
+        isTabActive = true;
+        isPageVisible = document.visibilityState === "visible";
+        isUserIdle = false;
+        lastActivityTime = Date.now();
+        lastCalculationTime = Date.now();
 
-        if (
-            message.type === "TAB_ACTIVE"
-        ) {
-
-            isTabActive = true;
-
-            lastActivityTime =
-                Date.now();
-
-            lastCalculationTime =
-                Date.now();
-
+        if (isPageVisible) {
             sendEvent("PAGE_ACTIVE", {
                 reason: "tab_active"
             });
-
         }
+    }
 
-
-        if (
-            message.type === "TAB_INACTIVE"
-        ) {
-
+    if (message.type === "TAB_INACTIVE") {
+        if (isTabActive) {
             calculateReadingTime(true);
-
             isTabActive = false;
-
-            lastCalculationTime =
-                Date.now();
-
+            lastCalculationTime = Date.now();
             sendEvent("PAGE_INACTIVE", {
                 reason: "tab_inactive"
             });
-
         }
-
     }
-);
+});
 
 
 // =====================================================
@@ -367,93 +279,64 @@ chrome.runtime.onMessage.addListener(
 // =====================================================
 
 function registerScrollListener() {
-
-    window.addEventListener(
-        "scroll",
-        updateScrollProgress,
-        {
-            passive: true
-        }
-    );
-
+    window.addEventListener("scroll", updateScrollProgress, { passive: true });
 }
 
-
 function updateScrollProgress() {
-
-    const scrollHeight =
-        document.documentElement.scrollHeight;
-
-
-    const viewportHeight =
-        window.innerHeight;
-
-
-    const scrollTop =
-        window.scrollY;
-
-
-    const totalScrollable =
-        scrollHeight -
-        viewportHeight;
-
+    const scrollHeight = document.documentElement.scrollHeight;
+    const viewportHeight = window.innerHeight;
+    const scrollTop = window.scrollY;
+    const totalScrollable = scrollHeight - viewportHeight;
 
     if (totalScrollable <= 0) {
-
         maxScrollPercent = 100;
-
         return;
     }
 
-
-    const percent =
-        (
-            (scrollTop + viewportHeight) /
-            scrollHeight
-        ) * 100;
-
-
-    maxScrollPercent =
-        Math.max(
-            maxScrollPercent,
-            Math.min(
-                100,
-                Math.round(percent)
-            )
-        );
-
+    const percent = ((scrollTop + viewportHeight) / scrollHeight) * 100;
+    maxScrollPercent = Math.max(maxScrollPercent, Math.min(100, Math.round(percent)));
 }
 
 
 // =====================================================
-// READING TIMER
+// READING TIMER & HEARTBEAT
 // =====================================================
 
 let heartbeatCount = 0;
 
 function startReadingTimer() {
-
     setInterval(() => {
+        const now = Date.now();
+        const idleTime = now - lastActivityTime;
 
+        // Auto-pause if user has been idle for longer than IDLE_THRESHOLD (30s)
+        if (!isUserIdle && idleTime > IDLE_THRESHOLD && isPageVisible && isTabActive) {
+            isUserIdle = true;
+            calculateReadingTime(true);
+            sendEvent("PAGE_INACTIVE", {
+                reason: "user_idle"
+            });
+        }
+
+        // Calculate time only if active & not idle
         calculateReadingTime();
 
         heartbeatCount++;
 
-        // Send active heartbeat every 5 seconds if active
+        // Send active heartbeat every 5 seconds if actively reading and interacting
         if (
             heartbeatCount % 5 === 0 &&
             isPageVisible &&
             isTabActive &&
+            !isUserIdle &&
             document.hasFocus() &&
-            (Date.now() - lastActivityTime <= IDLE_THRESHOLD)
+            (now - lastActivityTime <= IDLE_THRESHOLD)
         ) {
             sendEvent("PAGE_ACTIVE", {
                 reason: "heartbeat"
             });
         }
-
     }, CALCULATION_INTERVAL);
-
 }
 
 
@@ -462,95 +345,31 @@ function startReadingTimer() {
 // =====================================================
 
 function calculateReadingTime(force = false) {
-
-    if (
-        sessionEnded ||
-        !websiteConfig
-    ) {
-
+    if (sessionEnded || !websiteConfig) {
         return;
     }
 
-
-    const now =
-        Date.now();
-
-
-    // -----------------------------------------------
-    // CHECK VISIBILITY & FOCUS (UNLESS FORCED)
-    // -----------------------------------------------
+    const now = Date.now();
 
     if (!force) {
-
-        if (!isPageVisible) {
-
+        if (!isPageVisible || !isTabActive || !document.hasFocus() || isUserIdle) {
             lastCalculationTime = now;
-
             return;
         }
 
-
-        if (!isTabActive) {
-
+        const idleTime = now - lastActivityTime;
+        if (idleTime > IDLE_THRESHOLD) {
             lastCalculationTime = now;
-
             return;
         }
-
-
-        if (!document.hasFocus()) {
-
-            lastCalculationTime = now;
-
-            return;
-        }
-
     }
 
-
-    // -----------------------------------------------
-    // USER IDLE
-    // -----------------------------------------------
-
-    const idleTime =
-        now -
-        lastActivityTime;
-
-
-    if (
-        idleTime >
-        IDLE_THRESHOLD
-    ) {
-
-        lastCalculationTime =
-            now;
-
-        return;
-    }
-
-
-    // -----------------------------------------------
-    // ADD ACTIVE TIME
-    // -----------------------------------------------
-
-    const delta =
-        now -
-        lastCalculationTime;
-
-
-    if (
-        delta > 0 &&
-        delta <= 3000
-    ) {
-
+    const delta = now - lastCalculationTime;
+    if (delta > 0 && delta <= 3000) {
         readingTime += delta;
-
     }
 
-
-    lastCalculationTime =
-        now;
-
+    lastCalculationTime = now;
 }
 
 

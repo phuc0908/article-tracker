@@ -47,124 +47,111 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 
+// Active tab and open session tracking
+let currentActiveTabId = null;
+const tabSessionMap = new Map(); // tabId -> latest event info
+
 // =====================================================
 // TAB ACTIVATED
 // =====================================================
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-
     try {
+        const newTabId = activeInfo.tabId;
 
-        const tabs =
-            await chrome.tabs.query({
-                active: true,
-                lastFocusedWindow: true
-            });
-
-        const activeTab = tabs[0];
-
-        if (!activeTab) {
-            return;
+        // Notify previous active tab that it is now inactive
+        if (currentActiveTabId && currentActiveTabId !== newTabId) {
+            sendTabState(currentActiveTabId, false);
         }
 
-        sendTabState(
-            activeTab.id,
-            true
-        );
+        currentActiveTabId = newTabId;
 
+        // Notify new active tab that it is active
+        sendTabState(newTabId, true);
     } catch (error) {
-
-        console.error(
-            "Error handling tab activation:",
-            error
-        );
-
+        console.error("Error handling tab activation:", error);
     }
-
 });
 
+// =====================================================
+// TAB REMOVED (CLOSED)
+// =====================================================
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (tabSessionMap.has(tabId)) {
+        const lastEvt = tabSessionMap.get(tabId);
+        tabSessionMap.delete(tabId);
+
+        // Synthesize PAGE_LEAVE event to immediately close session
+        const leaveEvent = {
+            event_id: crypto.randomUUID(),
+            event_type: "PAGE_LEAVE",
+            session_id: lastEvt.session_id,
+            url: lastEvt.url,
+            domain: lastEvt.domain,
+            title: lastEvt.title,
+            timestamp: new Date().toISOString(),
+            payload: {
+                exit_type: "tab_closed",
+                scroll_percent: lastEvt.payload?.scroll_percent || lastEvt.payload?.max_scroll_percent || 0,
+                total_active_reading_time_sec: lastEvt.payload?.active_reading_time_sec || lastEvt.payload?.total_active_reading_time_sec || 0
+            }
+        };
+
+        saveEvent(leaveEvent);
+    }
+
+    if (tabId === currentActiveTabId) {
+        currentActiveTabId = null;
+    }
+});
 
 // =====================================================
 // WINDOW FOCUS
 // =====================================================
 
-chrome.windows.onFocusChanged.addListener(
-    async (windowId) => {
-
-        if (
-            windowId === chrome.windows.WINDOW_ID_NONE
-        ) {
-
-            // Chrome lost focus.
-            // Notify all tabs.
-
-            const tabs =
-                await chrome.tabs.query({});
-
-            tabs.forEach(tab => {
-
-                sendTabState(
-                    tab.id,
-                    false
-                );
-
-            });
-
-            return;
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId === chrome.windows.WINDOW_ID_NONE) {
+        // Chrome window lost focus completely -> notify active tab
+        if (currentActiveTabId) {
+            sendTabState(currentActiveTabId, false);
         }
-
-
-        try {
-
-            const tabs =
-                await chrome.tabs.query({
-                    active: true,
-                    windowId: windowId
-                });
-
-            const activeTab = tabs[0];
-
-            if (!activeTab) {
-                return;
-            }
-
-            sendTabState(
-                activeTab.id,
-                true
-            );
-
-        } catch (error) {
-
-            console.error(error);
-
-        }
-
+        return;
     }
-);
 
+    try {
+        const tabs = await chrome.tabs.query({
+            active: true,
+            windowId: windowId
+        });
+
+        const activeTab = tabs[0];
+        if (activeTab) {
+            if (currentActiveTabId && currentActiveTabId !== activeTab.id) {
+                sendTabState(currentActiveTabId, false);
+            }
+            currentActiveTabId = activeTab.id;
+            sendTabState(activeTab.id, true);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+});
 
 // =====================================================
 // SEND TAB STATE
 // =====================================================
 
-function sendTabState(
-    tabId,
-    active
-) {
-
+function sendTabState(tabId, active) {
     chrome.tabs.sendMessage(
         tabId,
         {
-            type: active
-                ? "TAB_ACTIVE"
-                : "TAB_INACTIVE"
+            type: active ? "TAB_ACTIVE" : "TAB_INACTIVE"
         }
     ).catch(() => {
         // Content script may not exist on this page.
     });
-
 }
-
 
 // =====================================================
 // MESSAGE LISTENER
@@ -174,9 +161,10 @@ chrome.runtime.onMessage.addListener(
     (message, sender, sendResponse) => {
 
         // Handle Event Tracking
-        if (
-            message.type === "TRACK_EVENT"
-        ) {
+        if (message.type === "TRACK_EVENT") {
+            if (sender?.tab?.id) {
+                tabSessionMap.set(sender.tab.id, message.event);
+            }
 
             saveEvent(message.event)
                 .then(() => {
@@ -427,9 +415,25 @@ function getAggregatedSessions(events) {
     }
 
     // Convert map to array and clean up temporary properties
+    const now = Date.now();
+    const ACTIVE_TTL_MS = 15 * 1000;
+    const INACTIVE_TTL_MS = 45 * 1000;
+
     const sessions = Array.from(sessionMap.values()).map(s => {
         const { _sessionTimes, ...cleanSession } = s;
-        return cleanSession;
+        const elapsed = now - new Date(cleanSession.endTime).getTime();
+
+        let finalStatus = cleanSession.status;
+        if (cleanSession.status === "ACTIVE" && elapsed > ACTIVE_TTL_MS) {
+            finalStatus = elapsed <= INACTIVE_TTL_MS ? "INACTIVE" : "COMPLETED";
+        } else if (cleanSession.status === "INACTIVE" && elapsed > INACTIVE_TTL_MS) {
+            finalStatus = "COMPLETED";
+        }
+
+        return {
+            ...cleanSession,
+            status: finalStatus
+        };
     });
 
     // Sort by latest activity (endTime descending)

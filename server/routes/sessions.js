@@ -65,7 +65,23 @@ router.get('/', (req, res) => {
             }
         }
 
-        let sessions = Array.from(sessionMap.values()).sort((a, b) => {
+        const now = Date.now();
+        const ACTIVE_TTL_MS = 15 * 1000;   // 15s
+        const INACTIVE_TTL_MS = 45 * 1000; // 45s
+
+        let sessions = Array.from(sessionMap.values()).map(s => {
+            const elapsed = now - new Date(s.end_time).getTime();
+            let finalStatus = s.status;
+            if (s.status === 'ACTIVE' && elapsed > ACTIVE_TTL_MS) {
+                finalStatus = elapsed <= INACTIVE_TTL_MS ? 'INACTIVE' : 'COMPLETED';
+            } else if (s.status === 'INACTIVE' && elapsed > INACTIVE_TTL_MS) {
+                finalStatus = 'COMPLETED';
+            }
+            return {
+                ...s,
+                status: finalStatus
+            };
+        }).sort((a, b) => {
             return new Date(b.end_time).getTime() - new Date(a.end_time).getTime();
         });
 

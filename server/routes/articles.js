@@ -44,17 +44,38 @@ router.get('/', (req, res) => {
         const stmt = db.prepare(query);
         const rows = stmt.all(...params);
 
-        // Compute active status for each article from the latest event
+        // Compute real-time active status for each article from the latest event with TTL freshness check
+        const now = Date.now();
+        const ACTIVE_TTL_MS = 15 * 1000;   // 15 seconds (heartbeat is 5s)
+        const INACTIVE_TTL_MS = 45 * 1000; // 45 seconds (temporary tab switch / idle)
+
         const enrichedRows = rows.map(art => {
             const latestEvent = db.prepare(`SELECT event_type, timestamp FROM events WHERE url = ? ORDER BY timestamp DESC LIMIT 1`).get(art.url);
             let status = 'COMPLETED';
+
             if (latestEvent) {
-                if (latestEvent.event_type === 'PAGE_ENTER' || latestEvent.event_type === 'PAGE_ACTIVE') {
-                    status = 'ACTIVE';
+                const eventTime = new Date(latestEvent.timestamp).getTime();
+                const elapsedMs = now - eventTime;
+
+                if (latestEvent.event_type === 'PAGE_ACTIVE' || latestEvent.event_type === 'PAGE_ENTER') {
+                    if (elapsedMs <= ACTIVE_TTL_MS) {
+                        status = 'ACTIVE';
+                    } else if (elapsedMs <= INACTIVE_TTL_MS) {
+                        status = 'INACTIVE';
+                    } else {
+                        status = 'COMPLETED';
+                    }
                 } else if (latestEvent.event_type === 'PAGE_INACTIVE') {
-                    status = 'INACTIVE';
+                    if (elapsedMs <= INACTIVE_TTL_MS) {
+                        status = 'INACTIVE';
+                    } else {
+                        status = 'COMPLETED';
+                    }
+                } else {
+                    status = 'COMPLETED';
                 }
             }
+
             return {
                 ...art,
                 status
