@@ -87,6 +87,11 @@ function sendEvent(eventType, payload = {}) {
         return;
     }
 
+    // Do not send any more events once the session has ended (except PAGE_LEAVE itself)
+    if (sessionEnded && eventType !== "PAGE_LEAVE") {
+        return;
+    }
+
     const eventObj = {
         event_id: crypto.randomUUID(),
         event_type: eventType,
@@ -167,6 +172,8 @@ function registerActivityListeners() {
 }
 
 function handleUserActivity() {
+    if (sessionEnded) return;
+
     const wasIdle = isUserIdle;
     lastActivityTime = Date.now();
 
@@ -187,6 +194,8 @@ function handleUserActivity() {
 
 function registerVisibilityListener() {
     document.addEventListener("visibilitychange", () => {
+        if (sessionEnded) return;
+
         if (document.visibilityState === "hidden") {
             calculateReadingTime(true);
             isPageVisible = false;
@@ -216,6 +225,8 @@ function registerVisibilityListener() {
 
 function registerFocusListeners() {
     window.addEventListener("focus", () => {
+        if (sessionEnded) return;
+
         isTabActive = true;
         isPageVisible = document.visibilityState === "visible";
         isUserIdle = false;
@@ -230,6 +241,8 @@ function registerFocusListeners() {
     });
 
     window.addEventListener("blur", () => {
+        if (sessionEnded) return;
+
         if (isTabActive) {
             calculateReadingTime(true);
             isTabActive = false;
@@ -247,6 +260,8 @@ function registerFocusListeners() {
 // =====================================================
 
 chrome.runtime.onMessage.addListener((message) => {
+    if (sessionEnded) return;
+
     if (message.type === "TAB_ACTIVE") {
         isTabActive = true;
         isPageVisible = document.visibilityState === "visible";

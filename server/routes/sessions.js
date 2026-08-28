@@ -126,7 +126,16 @@ router.get('/:id', (req, res) => {
         const sessionId = req.params.id;
 
         const stmt = db.prepare(`
-            SELECT * FROM events WHERE session_id = ? ORDER BY timestamp ASC
+            SELECT * FROM events 
+            WHERE session_id = ? 
+            ORDER BY timestamp ASC, 
+                     CASE event_type 
+                         WHEN 'PAGE_ENTER' THEN 1 
+                         WHEN 'PAGE_ACTIVE' THEN 2 
+                         WHEN 'PAGE_INACTIVE' THEN 3 
+                         WHEN 'PAGE_LEAVE' THEN 4 
+                         ELSE 5 
+                     END ASC
         `);
         const events = stmt.all(sessionId);
 

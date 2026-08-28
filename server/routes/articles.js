@@ -135,7 +135,18 @@ router.get('/detail', (req, res) => {
             });
         }
 
-        const events = db.prepare(`SELECT * FROM events WHERE url = ? ORDER BY timestamp ASC`).all(url);
+        const events = db.prepare(`
+            SELECT * FROM events 
+            WHERE url = ? 
+            ORDER BY timestamp ASC, 
+                     CASE event_type 
+                         WHEN 'PAGE_ENTER' THEN 1 
+                         WHEN 'PAGE_ACTIVE' THEN 2 
+                         WHEN 'PAGE_INACTIVE' THEN 3 
+                         WHEN 'PAGE_LEAVE' THEN 4 
+                         ELSE 5 
+                     END ASC
+        `).all(url);
 
         const timeline = events.map(e => ({
             event_id: e.event_id,
