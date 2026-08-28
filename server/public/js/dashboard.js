@@ -1,5 +1,5 @@
 /**
- * ARTICLE TRACKER - REAL-TIME DASHBOARD CONTROLLER
+ * ARTICLE TRACKER - REAL-TIME DASHBOARD CONTROLLER (LIGHT MODE / NO ICONS)
  */
 
 // State
@@ -132,7 +132,7 @@ function setupSSE() {
         };
 
         sseSource.onerror = () => {
-            elements.liveStatusText.textContent = 'Reconnecting...';
+            elements.liveStatusText.textContent = 'Đang kết nối lại...';
             elements.pulseDot.style.backgroundColor = 'var(--accent-amber)';
         };
     } catch (err) {
@@ -193,7 +193,7 @@ async function loadDashboardData(showVisualUpdate = true) {
             applyFiltersAndRender();
         }
 
-        elements.lastUpdatedTime.textContent = `Cập nhật lúc: ${new Date().toLocaleTimeString('vi-VN')}`;
+        elements.lastUpdatedTime.textContent = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN')}`;
     } catch (err) {
         console.error('Error fetching dashboard data:', err);
     }
@@ -285,7 +285,6 @@ function renderArticlesTable(articles) {
             <tr>
                 <td colspan="7">
                     <div class="empty-state">
-                        <div class="empty-icon">📰</div>
                         <p>Không tìm thấy bài báo nào phù hợp với bộ lọc.</p>
                     </div>
                 </td>
@@ -307,7 +306,7 @@ function renderArticlesTable(articles) {
         if (art.status === 'ACTIVE') {
             statusBadge = `<span class="status-badge active"><span class="pulse-dot"></span> Đang đọc</span>`;
         } else if (art.status === 'INACTIVE') {
-            statusBadge = `<span class="status-badge inactive">⏸ Tạm dừng</span>`;
+            statusBadge = `<span class="status-badge inactive">Tạm dừng</span>`;
         }
 
         return `
@@ -339,7 +338,7 @@ function renderArticlesTable(articles) {
                 </td>
                 <td style="text-align: center;">
                     <button class="btn-action" onclick="openArticleModal('${encodeURIComponent(art.url)}')">
-                        🔍 Chi tiết & Timeline
+                        Chi tiết & Timeline
                     </button>
                 </td>
             </tr>
@@ -368,7 +367,7 @@ window.openArticleModal = async function(encodedUrl, showModalUI = true) {
         // Populate modal header & KPIs
         elements.modalTitle.textContent = data.title || 'Untitled';
         elements.modalUrlLink.href = data.url;
-        elements.modalUrlLink.innerHTML = `${escapeHtml(data.url)} ↗`;
+        elements.modalUrlLink.textContent = data.url;
         elements.modalDomainBadge.textContent = data.domain || '';
         
         let statusText = 'Đã hoàn thành';
@@ -424,8 +423,8 @@ function renderModalSummary(data) {
     const summary = data.summary || (data.content ? generateQuickSummary(data.content) : 'Chưa có nội dung tóm tắt.');
     elements.modalSummaryView.innerHTML = `
         <div class="summary-box">
-            <div class="summary-tag-badge">✨ AI / Smart Summary</div>
-            <p style="font-size: 15px; font-weight: 500;">${escapeHtml(summary)}</p>
+            <div class="summary-tag-badge">Tóm tắt nội dung</div>
+            <p style="font-size: 14.5px; font-weight: 500; line-height: 1.7;">${escapeHtml(summary)}</p>
         </div>
     `;
 }
@@ -447,7 +446,6 @@ function renderModalTimeline(timeline) {
     if (!timeline || timeline.length === 0) {
         elements.modalTimelineView.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">⏱</div>
                 <p>Chưa ghi nhận event timeline nào cho bài báo này.</p>
             </div>
         `;
@@ -463,20 +461,16 @@ function renderModalTimeline(timeline) {
                 
                 let nodeColor = 'var(--accent-indigo)';
                 let eventLabel = 'PAGE_ACTIVE (Đang đọc)';
-                let eventIcon = '👁';
 
                 if (eventType === 'PAGE_ENTER') {
                     nodeColor = 'var(--accent-emerald)';
                     eventLabel = 'PAGE_ENTER (Vào trang)';
-                    eventIcon = '🚀';
                 } else if (eventType === 'PAGE_INACTIVE') {
                     nodeColor = 'var(--accent-amber)';
                     eventLabel = 'PAGE_INACTIVE (Tạm dừng/Rời tab)';
-                    eventIcon = '⏸';
                 } else if (eventType === 'PAGE_LEAVE') {
                     nodeColor = 'var(--accent-rose)';
                     eventLabel = 'PAGE_LEAVE (Đóng trang/Hoàn tất)';
-                    eventIcon = '🏁';
                 }
 
                 const readingTimeSec = payload.total_active_reading_time_sec ?? payload.active_reading_time_sec ?? 0;
@@ -489,13 +483,13 @@ function renderModalTimeline(timeline) {
                         <div class="timeline-card">
                             <div class="timeline-header">
                                 <span class="timeline-event-name" style="--event-color: ${nodeColor}">
-                                    ${eventIcon} ${eventLabel}
+                                    ${eventLabel}
                                 </span>
                                 <span class="timeline-time">${timeStr}</span>
                             </div>
                             <div class="timeline-meta">
-                                <span>⏱ Đã đọc: <strong>${formatDuration(readingTimeSec)}</strong></span>
-                                <span>↕ Cuộn trang: <strong>${scrollPercent}%</strong></span>
+                                <span>Thời gian đọc: <strong>${formatDuration(readingTimeSec)}</strong></span>
+                                <span>Cuộn trang: <strong>${scrollPercent}%</strong></span>
                                 ${reason ? `<span>${reason}</span>` : ''}
                                 <span style="color: var(--text-muted); font-size: 11px;">Session: ${evt.session_id ? evt.session_id.substring(0, 8) + '...' : '-'}</span>
                             </div>

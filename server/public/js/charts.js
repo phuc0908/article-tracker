@@ -1,5 +1,5 @@
 /**
- * ARTICLE TRACKER - CHART.JS VISUALIZATION MANAGER
+ * ARTICLE TRACKER - CHART.JS VISUALIZATION MANAGER (LIGHT MODE)
  */
 
 const ChartManager = {
@@ -9,34 +9,34 @@ const ChartManager = {
     hourlyChart: null,
 
     chartColors: {
-        indigo: '#6366f1',
-        purple: '#a855f7',
-        cyan: '#06b6d4',
-        emerald: '#10b981',
-        amber: '#f59e0b',
-        rose: '#f43f5e',
-        blue: '#3b82f6',
+        indigo: '#4f46e5',
+        purple: '#7c3aed',
+        cyan: '#0891b2',
+        emerald: '#059669',
+        amber: '#d97706',
+        rose: '#e11d48',
+        blue: '#2563eb',
         palette: [
-            '#6366f1',
-            '#06b6d4',
-            '#10b981',
-            '#f59e0b',
-            '#ec4899',
-            '#8b5cf6',
-            '#3b82f6',
-            '#14b8a6'
+            '#4f46e5',
+            '#0891b2',
+            '#059669',
+            '#d97706',
+            '#db2777',
+            '#7c3aed',
+            '#2563eb',
+            '#0d9488'
         ]
     },
 
     init() {
-        // Global defaults for Chart.js
-        Chart.defaults.color = '#94a3b8';
+        // Global defaults for Chart.js in Light Mode
+        Chart.defaults.color = '#475569';
         Chart.defaults.font.family = "'Inter', sans-serif";
-        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)';
-        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+        Chart.defaults.plugins.tooltip.borderColor = '#e2e8f0';
         Chart.defaults.plugins.tooltip.borderWidth = 1;
         Chart.defaults.plugins.tooltip.padding = 10;
-        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        Chart.defaults.plugins.tooltip.cornerRadius = 6;
     },
 
     /**
@@ -48,7 +48,7 @@ const ChartManager = {
 
         const labels = (topDomains && topDomains.length > 0)
             ? topDomains.map(d => d.domain)
-            : ['No data'];
+            : ['Chưa có dữ liệu'];
         const data = (topDomains && topDomains.length > 0)
             ? topDomains.map(d => Math.round((d.total_reading_time || 0) / 60))
             : [1];
@@ -67,21 +67,21 @@ const ChartManager = {
                 datasets: [{
                     data: data,
                     backgroundColor: this.chartColors.palette,
-                    borderColor: '#121a2d',
-                    borderWidth: 3,
-                    hoverOffset: 6
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                    hoverOffset: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '72%',
+                cutout: '70%',
                 plugins: {
                     legend: {
                         position: 'bottom',
                         labels: {
                             boxWidth: 12,
-                            padding: 14,
+                            padding: 12,
                             font: { size: 12 }
                         }
                     },
@@ -109,7 +109,7 @@ const ChartManager = {
         const recentArticles = [...(articles || [])].slice(0, 15).reverse();
 
         recentArticles.forEach(art => {
-            const dateStr = art.last_seen ? new Date(art.last_seen).toLocaleDateString('vi-VN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+            const dateStr = art.last_seen ? new Date(art.last_seen).toLocaleDateString('vi-VN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Chưa rõ';
             const readingMin = Math.round((art.total_reading_time_sec || 0) / 60 * 10) / 10;
             dateMap[dateStr] = (dateMap[dateStr] || 0) + readingMin;
         });
@@ -125,8 +125,8 @@ const ChartManager = {
         }
 
         const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.45)');
-        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
+        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
 
         this.trendChart = new Chart(ctx, {
             type: 'line',
@@ -135,12 +135,12 @@ const ChartManager = {
                 datasets: [{
                     label: 'Thời gian đọc (phút)',
                     data: values,
-                    borderColor: '#6366f1',
-                    borderWidth: 3,
+                    borderColor: '#4f46e5',
+                    borderWidth: 2.5,
                     backgroundColor: gradient,
                     fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#6366f1',
+                    tension: 0.3,
+                    pointBackgroundColor: '#4f46e5',
                     pointBorderColor: '#ffffff',
                     pointRadius: 4,
                     pointHoverRadius: 6
@@ -152,7 +152,7 @@ const ChartManager = {
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        grid: { color: '#f1f5f9' },
                         ticks: {
                             callback: value => value + 'm'
                         }
@@ -201,8 +201,8 @@ const ChartManager = {
                 datasets: [{
                     label: 'Số bài báo',
                     data: data,
-                    backgroundColor: ['#3b82f6', '#06b6d4', '#10b981', '#a855f7'],
-                    borderRadius: 6
+                    backgroundColor: ['#3b82f6', '#06b6d4', '#10b981', '#7c3aed'],
+                    borderRadius: 4
                 }]
             },
             options: {
@@ -212,7 +212,7 @@ const ChartManager = {
                     y: {
                         beginAtZero: true,
                         ticks: { stepSize: 1 },
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        grid: { color: '#f1f5f9' }
                     },
                     x: {
                         grid: { display: false }
@@ -267,8 +267,8 @@ const ChartManager = {
                 datasets: [{
                     label: 'Hoạt động đọc',
                     data: values,
-                    backgroundColor: 'rgba(6, 182, 212, 0.7)',
-                    hoverBackgroundColor: '#06b6d4',
+                    backgroundColor: 'rgba(8, 145, 178, 0.75)',
+                    hoverBackgroundColor: '#0891b2',
                     borderRadius: 4
                 }]
             },
@@ -279,7 +279,7 @@ const ChartManager = {
                     y: {
                         beginAtZero: true,
                         ticks: { stepSize: 1 },
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        grid: { color: '#f1f5f9' }
                     },
                     x: {
                         grid: { display: false }

@@ -9,7 +9,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -26,10 +26,9 @@
              ===================================================== -->
         <header class="dashboard-header">
             <div class="brand-section">
-                <div class="brand-logo">📊</div>
                 <div class="brand-info">
                     <h1>Article Tracker Dashboard</h1>
-                    <p>Hệ thống giám sát & Thống kê hành vi đọc bài báo theo thời gian thực</p>
+                    <p>Hệ thống giám sát và thống kê hành vi đọc bài báo theo thời gian thực</p>
                 </div>
             </div>
 
@@ -40,7 +39,7 @@
                 </div>
                 <span id="lastUpdatedTime" style="font-size: 12px; color: var(--text-muted);">Cập nhật: Vừa xong</span>
                 <button class="btn btn-primary" id="refreshBtn" title="Làm mới dữ liệu">
-                    <span>🔄</span> Làm mới
+                    Làm mới
                 </button>
             </div>
         </header>
@@ -50,7 +49,7 @@
              ===================================================== -->
         <div class="ticker-container">
             <div class="ticker-label">
-                <span>⚡ Live Feed</span>
+                <span>Live Feed</span>
             </div>
             <div class="ticker-content" id="tickerText">
                 <span class="ticker-tag" style="background: var(--accent-indigo); color: white;">IDLE</span>
@@ -63,50 +62,46 @@
              ===================================================== -->
         <section class="kpi-grid">
             <!-- Total Articles -->
-            <div class="kpi-card" style="--card-accent: var(--accent-indigo); --icon-bg: rgba(99, 102, 241, 0.15); --icon-color: var(--accent-indigo);">
+            <div class="kpi-card">
                 <div class="kpi-header">
                     <span class="kpi-title">Bài báo đã đọc</span>
-                    <div class="kpi-icon">📰</div>
                 </div>
                 <div class="kpi-value" id="kpiArticles">0</div>
                 <div class="kpi-subtext">
-                    <span class="kpi-trend">Đã ghi nhận</span> trong hệ cơ sở dữ liệu
+                    <span class="kpi-trend">Đã ghi nhận</span> trong cơ sở dữ liệu
                 </div>
             </div>
 
             <!-- Total Reading Time -->
-            <div class="kpi-card" style="--card-accent: var(--accent-cyan); --icon-bg: rgba(6, 182, 212, 0.15); --icon-color: var(--accent-cyan);">
+            <div class="kpi-card">
                 <div class="kpi-header">
                     <span class="kpi-title">Tổng thời gian đọc</span>
-                    <div class="kpi-icon">⏱</div>
                 </div>
                 <div class="kpi-value" id="kpiTime">0s</div>
                 <div class="kpi-subtext">
-                    <span class="kpi-trend">Active Reading</span> thực tế của người dùng
+                    <span class="kpi-trend">Active Reading</span> thực tế
                 </div>
             </div>
 
             <!-- Avg Scroll Depth -->
-            <div class="kpi-card" style="--card-accent: var(--accent-emerald); --icon-bg: rgba(16, 185, 129, 0.15); --icon-color: var(--accent-emerald);">
+            <div class="kpi-card">
                 <div class="kpi-header">
                     <span class="kpi-title">Độ sâu cuộn trung bình</span>
-                    <div class="kpi-icon">↕</div>
                 </div>
                 <div class="kpi-value" id="kpiScroll">0%</div>
                 <div class="kpi-subtext">
-                    <span class="kpi-trend">Mức độ đọc sâu</span> toàn bài viết
+                    <span class="kpi-trend">Mức độ hoàn thành</span> bài viết
                 </div>
             </div>
 
             <!-- Total Sessions -->
-            <div class="kpi-card" style="--card-accent: var(--accent-purple); --icon-bg: rgba(168, 85, 247, 0.15); --icon-color: var(--accent-purple);">
+            <div class="kpi-card">
                 <div class="kpi-header">
                     <span class="kpi-title">Tổng số phiên đọc</span>
-                    <div class="kpi-icon">🎯</div>
                 </div>
                 <div class="kpi-value" id="kpiSessions">0</div>
                 <div class="kpi-subtext">
-                    <span class="kpi-trend">Lượt tương tác</span> trên các trang báo
+                    <span class="kpi-trend">Lượt tương tác</span> trang bài viết
                 </div>
             </div>
         </section>
@@ -119,7 +114,7 @@
             <div class="chart-card">
                 <div class="chart-header">
                     <div class="chart-title-group">
-                        <h3>Xu hướng thời gian đọc theo chu kỳ</h3>
+                        <h3>Xu hướng thời gian đọc</h3>
                         <p>Thời lượng đọc tích lũy qua từng đợt truy cập bài viết</p>
                     </div>
                 </div>
@@ -177,15 +172,14 @@
         <section class="table-section">
             <div class="table-header-bar">
                 <div class="table-title">
-                    <h3>Danh sách bài báo đã đọc & Phân tích chi tiết</h3>
+                    <h3>Danh sách bài báo đã đọc</h3>
                     <p id="tableCountText">Đang tải dữ liệu...</p>
                 </div>
 
                 <div class="table-controls">
                     <!-- Search Input -->
                     <div class="search-box">
-                        <span class="search-icon">🔍</span>
-                        <input type="text" id="searchInput" placeholder="Tìm theo tiêu đề, URL, nội dung...">
+                        <input type="text" id="searchInput" placeholder="Tìm tiêu đề, URL, nội dung...">
                     </div>
 
                     <!-- Domain Filter -->
@@ -196,9 +190,9 @@
                     <!-- Status Filter -->
                     <select id="statusFilter" class="filter-select">
                         <option value="">Tất cả trạng thái</option>
-                        <option value="ACTIVE">Đang đọc (Active)</option>
-                        <option value="INACTIVE">Tạm dừng (Inactive)</option>
-                        <option value="COMPLETED">Đã đọc xong (Completed)</option>
+                        <option value="ACTIVE">Đang đọc</option>
+                        <option value="INACTIVE">Tạm dừng</option>
+                        <option value="COMPLETED">Đã đọc xong</option>
                     </select>
 
                     <!-- Sort Options -->
@@ -220,7 +214,7 @@
                             <th>Trạng thái</th>
                             <th>Tổng thời gian đọc</th>
                             <th>Độ sâu cuộn</th>
-                            <th>Tóm tắt nhanh (TL;DR)</th>
+                            <th>Tóm tắt nội dung</th>
                             <th>Thời gian đọc</th>
                             <th style="text-align: center;">Thao tác</th>
                         </tr>
@@ -271,13 +265,13 @@
             <!-- Modal Navigation Tabs -->
             <div class="modal-tabs">
                 <button class="modal-tab-btn active" id="modalTabSummary">
-                    ✨ Nội dung tóm tắt
+                    Nội dung tóm tắt
                 </button>
                 <button class="modal-tab-btn" id="modalTabContent">
-                    📄 Nội dung bài báo <span id="wordCountBadge" style="font-size: 11px; font-weight: normal; color: var(--text-muted); margin-left: 6px;"></span>
+                    Nội dung bài báo <span id="wordCountBadge" style="font-size: 11px; font-weight: normal; color: var(--text-muted); margin-left: 6px;"></span>
                 </button>
                 <button class="modal-tab-btn" id="modalTabTimeline">
-                    ⏱ Timeline các event
+                    Timeline các event
                 </button>
             </div>
 
