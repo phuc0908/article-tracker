@@ -96,6 +96,27 @@ function insertEvent(event) {
     const title = event.title || 'Untitled';
     const timestamp = event.timestamp || new Date().toISOString();
 
+    // Server-side Deduplication: Ignore/merge identical consecutive events for the same session within 1000ms
+    if (event.session_id && event.event_type !== 'PAGE_ENTER') {
+        const lastEvt = db.prepare(`
+            SELECT event_id, event_type, timestamp 
+            FROM events 
+            WHERE session_id = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 1
+        `).get(event.session_id);
+
+        if (lastEvt && lastEvt.event_type === event.event_type) {
+            const timeDiff = Math.abs(new Date(timestamp).getTime() - new Date(lastEvt.timestamp).getTime());
+            if (timeDiff < 1000) {
+                db.prepare(`UPDATE events SET timestamp = ?, payload = ? WHERE event_id = ?`)
+                  .run(timestamp, payloadStr, lastEvt.event_id);
+                updateArticleSummary(event.url, domain, title, timestamp, event);
+                return lastEvt.event_id;
+            }
+        }
+    }
+
     const insertEventStmt = db.prepare(`
         INSERT OR REPLACE INTO events (event_id, event_type, session_id, url, domain, title, timestamp, payload)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)

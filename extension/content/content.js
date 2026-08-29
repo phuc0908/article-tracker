@@ -20,7 +20,41 @@ let isTabActive = document.hasFocus();
 let isPageVisible = document.visibilityState === "visible";
 let isUserIdle = false;
 let sessionEnded = false;
+let currentTrackingStatus = "INIT"; // 'INIT' | 'ACTIVE' | 'INACTIVE' | 'LEAVE'
 let maxScrollPercent = 0;
+
+
+// =====================================================
+// STATE TRANSITIONS (DEDUPLICATION GUARDS)
+// =====================================================
+
+function transitionToActive(reason) {
+    if (sessionEnded || currentTrackingStatus === "ACTIVE") {
+        return;
+    }
+
+    currentTrackingStatus = "ACTIVE";
+    isPageVisible = true;
+    isTabActive = true;
+    isUserIdle = false;
+    lastActivityTime = Date.now();
+    lastCalculationTime = Date.now();
+
+    sendEvent("PAGE_ACTIVE", { reason });
+}
+
+function transitionToInactive(reason) {
+    if (sessionEnded || currentTrackingStatus === "INACTIVE") {
+        return;
+    }
+
+    calculateReadingTime(true);
+    currentTrackingStatus = "INACTIVE";
+    isTabActive = false;
+    lastCalculationTime = Date.now();
+
+    sendEvent("PAGE_INACTIVE", { reason });
+}
 
 
 // =====================================================
@@ -67,11 +101,11 @@ let maxScrollPercent = 0;
         summary: extractedSummary
     });
 
-    // If tab is currently visible, active and focused, emit PAGE_ACTIVE
+    // Initial state transition
     if (isPageVisible && isTabActive) {
-        sendEvent("PAGE_ACTIVE", {
-            reason: "page_load"
-        });
+        transitionToActive("page_load");
+    } else {
+        currentTrackingStatus = "INACTIVE";
     }
 
 })();
@@ -180,10 +214,7 @@ function handleUserActivity() {
     // User resumed activity after being idle
     if (wasIdle && isPageVisible && isTabActive && !sessionEnded) {
         isUserIdle = false;
-        lastCalculationTime = Date.now();
-        sendEvent("PAGE_ACTIVE", {
-            reason: "user_resume"
-        });
+        transitionToActive("user_resume");
     }
 }
 
@@ -197,22 +228,12 @@ function registerVisibilityListener() {
         if (sessionEnded) return;
 
         if (document.visibilityState === "hidden") {
-            calculateReadingTime(true);
             isPageVisible = false;
-            sendEvent("PAGE_INACTIVE", {
-                reason: "visibility_hidden"
-            });
+            transitionToInactive("visibility_hidden");
         } else {
             isPageVisible = true;
-            isTabActive = document.hasFocus();
-            isUserIdle = false;
-            lastActivityTime = Date.now();
-            lastCalculationTime = Date.now();
-
-            if (isTabActive) {
-                sendEvent("PAGE_ACTIVE", {
-                    reason: "visibility_visible"
-                });
+            if (document.hasFocus()) {
+                transitionToActive("visibility_visible");
             }
         }
     });
@@ -227,30 +248,15 @@ function registerFocusListeners() {
     window.addEventListener("focus", () => {
         if (sessionEnded) return;
 
-        isTabActive = true;
-        isPageVisible = document.visibilityState === "visible";
-        isUserIdle = false;
-        lastActivityTime = Date.now();
-        lastCalculationTime = Date.now();
-
-        if (isPageVisible) {
-            sendEvent("PAGE_ACTIVE", {
-                reason: "window_focus"
-            });
+        if (document.visibilityState === "visible") {
+            transitionToActive("window_focus");
         }
     });
 
     window.addEventListener("blur", () => {
         if (sessionEnded) return;
 
-        if (isTabActive) {
-            calculateReadingTime(true);
-            isTabActive = false;
-            lastCalculationTime = Date.now();
-            sendEvent("PAGE_INACTIVE", {
-                reason: "window_blur"
-            });
-        }
+        transitionToInactive("window_blur");
     });
 }
 
@@ -263,28 +269,13 @@ chrome.runtime.onMessage.addListener((message) => {
     if (sessionEnded) return;
 
     if (message.type === "TAB_ACTIVE") {
-        isTabActive = true;
-        isPageVisible = document.visibilityState === "visible";
-        isUserIdle = false;
-        lastActivityTime = Date.now();
-        lastCalculationTime = Date.now();
-
-        if (isPageVisible) {
-            sendEvent("PAGE_ACTIVE", {
-                reason: "tab_active"
-            });
+        if (document.visibilityState === "visible") {
+            transitionToActive("tab_active");
         }
     }
 
     if (message.type === "TAB_INACTIVE") {
-        if (isTabActive) {
-            calculateReadingTime(true);
-            isTabActive = false;
-            lastCalculationTime = Date.now();
-            sendEvent("PAGE_INACTIVE", {
-                reason: "tab_inactive"
-            });
-        }
+        transitionToInactive("tab_inactive");
     }
 });
 
@@ -325,12 +316,9 @@ function startReadingTimer() {
         const idleTime = now - lastActivityTime;
 
         // Auto-pause if user has been idle for longer than IDLE_THRESHOLD (30s)
-        if (!isUserIdle && idleTime > IDLE_THRESHOLD && isPageVisible && isTabActive) {
+        if (!isUserIdle && idleTime > IDLE_THRESHOLD && currentTrackingStatus === "ACTIVE") {
             isUserIdle = true;
-            calculateReadingTime(true);
-            sendEvent("PAGE_INACTIVE", {
-                reason: "user_idle"
-            });
+            transitionToInactive("user_idle");
         }
 
         // Calculate time only if active & not idle
@@ -341,6 +329,7 @@ function startReadingTimer() {
         // Send active heartbeat every 5 seconds if actively reading and interacting
         if (
             heartbeatCount % 5 === 0 &&
+            currentTrackingStatus === "ACTIVE" &&
             isPageVisible &&
             isTabActive &&
             !isUserIdle &&
@@ -548,9 +537,8 @@ function endSession() {
         return;
     }
 
-
     sessionEnded = true;
-
+    currentTrackingStatus = "LEAVE";
 
     // Calculate last active interval forcing bypass of focus state during page unload
     calculateReadingTime(true);
