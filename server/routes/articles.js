@@ -156,10 +156,24 @@ router.get('/detail', (req, res) => {
             payload: safeJsonParse(e.payload)
         }));
 
+        let status = 'COMPLETED';
+        if (events.length > 0) {
+            const lastEvt = events[events.length - 1];
+            const elapsedMs = Date.now() - new Date(lastEvt.timestamp).getTime();
+            if (lastEvt.event_type === 'PAGE_ACTIVE' || lastEvt.event_type === 'PAGE_ENTER') {
+                status = elapsedMs <= 15000 ? 'ACTIVE' : (elapsedMs <= 45000 ? 'INACTIVE' : 'COMPLETED');
+            } else if (lastEvt.event_type === 'PAGE_INACTIVE') {
+                status = elapsedMs <= 45000 ? 'INACTIVE' : 'COMPLETED';
+            } else {
+                status = 'COMPLETED';
+            }
+        }
+
         res.json({
             success: true,
             data: {
                 ...article,
+                status,
                 events_count: events.length,
                 timeline
             }

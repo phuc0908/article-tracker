@@ -147,6 +147,8 @@ app.use((err, req, res, next) => {
     });
 });
 
+const { startAutoFinalizer } = require('./services/autoFinalizer');
+
 // Start Server
 if (require.main === module) {
     app.listen(PORT, () => {
@@ -159,6 +161,9 @@ if (require.main === module) {
         console.log(`   - GET  http://localhost:${PORT}/api/articles`);
         console.log(`   - GET  http://localhost:${PORT}/api/stats`);
         console.log(`====================================================`);
+
+        // Start Dead Man's Switch / Auto-Finalizer background worker
+        startAutoFinalizer(10000);
     });
 }
 

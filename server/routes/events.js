@@ -135,3 +135,4 @@ function safeJsonParse(str) {
 }
 
 module.exports = router;
+module.exports.broadcastEvent = broadcastEvent;
