@@ -173,3 +173,42 @@ graph TD
         DASH -->|Fetch REST API| API
     end
 ```
+
+## Completed Features
+
+### Chrome Extension (Manifest V3)
+
+* **Active Reading Time:** Tính thời gian đọc thực tế dựa trên trạng thái tab, window focus và user interaction.
+* **Idle Detection:** Tự động chuyển `PAGE_INACTIVE` sau 30s không tương tác và resume khi người dùng tiếp tục đọc.
+* **Scroll Depth Tracking:** Theo dõi `max_scroll_percent` từ 0–100%.
+* **Article Extraction & Summary:** Trích xuất toàn văn và Sapo từ selector, Meta tags hoặc câu mở đầu.
+* **Finite State Machine:** Ngăn chặn duplicate events khi chuyển tab/window.
+* **Multi-tab Tracking:** Tính chính xác thời gian đọc khi chuyển đổi giữa nhiều tab.
+* **Session Finalization:** Phát `PAGE_LEAVE` khi đóng trang/tab.
+* **Heartbeat:** Gửi dữ liệu tích lũy mỗi 5s, giảm mất dữ liệu khi trình duyệt bị tắt đột ngột.
+* **Popup & Options:** Xem lịch sử đọc, thống kê và cấu hình website/selectors.
+
+### Central Server
+
+* **RESTful API:** Events, Articles, Sessions, Statistics và Database Reset.
+* **SQLite Database:** Lưu `events` và `articles` với các index cần thiết.
+* **Dead Man's Switch:** Tự động finalize session sau 20s mất tín hiệu.
+* **Server-Sent Events (SSE):** Cập nhật dữ liệu Dashboard theo thời gian thực.
+
+### Web Analytics Dashboard
+
+* **Light Mode UI:** Giao diện hiện đại, tối ưu cho việc theo dõi số liệu.
+* **4 Real-time Charts:** Reading Time, Website Distribution, Scroll Depth và Reading Hours.
+* **Article Management:** Tìm kiếm, lọc và sắp xếp bài báo.
+* **Article Detail Modal:**
+
+  * Smart Summary
+  * Full Article Content
+  * Event Timeline
+
+## Current Limitations
+
+* **Offline Retry Queue:** Chưa có hàng đợi tự động retry/batch sync khi mất mạng.
+* **Remote Config Sync:** Website selectors hiện chỉ được cấu hình local, chưa đồng bộ từ Server.
+* **SQLite Scalability:** Phù hợp với quy mô nhỏ/vừa; cần PostgreSQL/Redis khi mở rộng lớn.
+* **Delayed SPA Content:** Chưa hỗ trợ tối ưu các website SPA tải nội dung động; cần bổ sung `MutationObserver`.

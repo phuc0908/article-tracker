@@ -51,7 +51,7 @@ function checkAndFinalizeDeadSessions() {
                         ...payload,
                         exit_type: 'timeout_abrupt_exit',
                         auto_finalized: true
-                    }
+                    }   
                 };
 
                 const insertedId = insertEvent(syntheticLeaveEvent);
