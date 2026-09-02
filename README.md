@@ -210,5 +210,4 @@ graph TD
 
 * **Offline Retry Queue:** Chưa có hàng đợi tự động retry/batch sync khi mất mạng.
 * **Remote Config Sync:** Website selectors hiện chỉ được cấu hình local, chưa đồng bộ từ Server.
-* **SQLite Scalability:** Phù hợp với quy mô nhỏ/vừa; cần PostgreSQL/Redis khi mở rộng lớn.
-* **Delayed SPA Content:** Chưa hỗ trợ tối ưu các website SPA tải nội dung động; cần bổ sung `MutationObserver`.
+* **Delayed SPA Content:** Chưa hỗ trợ tối ưu các website SPA tải nội dung động.
